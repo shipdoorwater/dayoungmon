@@ -1,0 +1,9 @@
+pytesseract
+PyPDF2
+Pillow
+python-docx
+python-pptx
+openpyxl
+pandas
+anthropic
+python-dotenv
