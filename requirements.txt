@@ -7,3 +7,5 @@ openpyxl
 pandas
 anthropic
 python-dotenv
+ollama
+requests

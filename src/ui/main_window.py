@@ -8,6 +8,7 @@ from pathlib import Path
 from ..core.file_processor import FileProcessor, preprocess_text
 from ..core.regulation_checker import RegulationChecker
 from ..core.ai_analyzer import AIAnalyzer
+from ..core.local_ai_analyzer import LocalAIAnalyzer
 
 class MainWindow:
     """메인 애플리케이션 윈도우"""
@@ -22,6 +23,7 @@ class MainWindow:
         self.file_processor = FileProcessor()
         self.regulation_checker = RegulationChecker()
         self.ai_analyzer = AIAnalyzer()
+        self.local_ai_analyzer = LocalAIAnalyzer()
         
         # 현재 파일 정보
         self.current_file = None
@@ -214,22 +216,41 @@ class MainWindow:
         
         ai_radio = ttk.Radiobutton(
             mode_frame, 
-            text="AI 정밀 분석", 
+            text="AI 정밀 분석 (Claude)", 
             variable=self.analysis_mode, 
             value="ai",
             state=tk.NORMAL if self.ai_analyzer.is_available() else tk.DISABLED
         )
         ai_radio.pack(anchor=tk.W)
         
+        local_ai_radio = ttk.Radiobutton(
+            mode_frame,
+            text="로컬 AI 분석 (Ollama)",
+            variable=self.analysis_mode,
+            value="local_ai",
+            state=tk.NORMAL if self.local_ai_analyzer.is_available() else tk.DISABLED
+        )
+        local_ai_radio.pack(anchor=tk.W)
+        
         # AI 사용량 정보
         if self.ai_analyzer.is_available():
             usage_report = self.ai_analyzer.get_usage_report()
-            usage_text = f"오늘: {usage_report['today_requests']}/{usage_report['daily_limit']}회"
+            usage_text = f"Claude API: {usage_report['today_requests']}/{usage_report['daily_limit']}회"
             usage_label = ttk.Label(mode_frame, text=usage_text, font=("Arial", 8), foreground="gray")
             usage_label.pack(anchor=tk.W)
         else:
-            no_api_label = ttk.Label(mode_frame, text="API 키 필요", font=("Arial", 8), foreground="red")
+            no_api_label = ttk.Label(mode_frame, text="Claude API 키 필요", font=("Arial", 8), foreground="red")
             no_api_label.pack(anchor=tk.W)
+        
+        # 로컬 AI 사용량 정보
+        if self.local_ai_analyzer.is_available():
+            local_usage = self.local_ai_analyzer.get_usage_report()
+            local_text = f"로컬 AI: {local_usage['today_requests']}회 ({local_usage.get('current_model', 'N/A')})"
+            local_label = ttk.Label(mode_frame, text=local_text, font=("Arial", 8), foreground="gray")
+            local_label.pack(anchor=tk.W)
+        else:
+            no_local_label = ttk.Label(mode_frame, text="Ollama 설치 필요", font=("Arial", 8), foreground="red")
+            no_local_label.pack(anchor=tk.W)
         
         # 검토 시작 버튼
         self.check_button = ttk.Button(
@@ -310,8 +331,8 @@ class MainWindow:
             analysis_mode = self.analysis_mode.get()
             
             if analysis_mode == "ai" and self.ai_analyzer.is_available():
-                # AI 분석 모드
-                self.root.after(0, lambda: self.status_var.set("AI가 법규 위반사항을 분석하는 중... (30초-1분 소요)"))
+                # Claude AI 분석 모드
+                self.root.after(0, lambda: self.status_var.set("Claude AI가 법규 위반사항을 분석하는 중... (30초-1분 소요)"))
                 ai_result = self.ai_analyzer.analyze_text(self.current_text)
                 
                 if ai_result:
@@ -324,7 +345,26 @@ class MainWindow:
                     self.root.after(0, lambda: self._display_ai_results(ai_result, basic_report, basic_violations))
                 else:
                     # AI 분석 실패 시 기본 분석으로 대체
-                    self.root.after(0, lambda: self.status_var.set("AI 분석 실패. 기본 검사로 진행합니다..."))
+                    self.root.after(0, lambda: self.status_var.set("Claude AI 분석 실패. 기본 검사로 진행합니다..."))
+                    violations = self.regulation_checker.check_violations(self.current_text)
+                    report = self.regulation_checker.generate_report(violations, self.current_text)
+                    self.root.after(0, lambda: self._display_results(report, violations))
+            elif analysis_mode == "local_ai" and self.local_ai_analyzer.is_available():
+                # 로컬 AI 분석 모드
+                self.root.after(0, lambda: self.status_var.set("로컬 AI가 법규 위반사항을 분석하는 중... (1-3분 소요)"))
+                local_ai_result = self.local_ai_analyzer.analyze_text(self.current_text)
+                
+                if local_ai_result:
+                    # 로컬 AI 결과와 기본 검사 결과 비교
+                    self.root.after(0, lambda: self.status_var.set("기본 검사와 결과를 비교하는 중..."))
+                    basic_violations = self.regulation_checker.check_violations(self.current_text)
+                    basic_report = self.regulation_checker.generate_report(basic_violations, self.current_text)
+                    
+                    # 로컬 AI 결과 표시
+                    self.root.after(0, lambda: self._display_local_ai_results(local_ai_result, basic_report, basic_violations))
+                else:
+                    # 로컬 AI 분석 실패 시 기본 분석으로 대체
+                    self.root.after(0, lambda: self.status_var.set("로컬 AI 분석 실패. 기본 검사로 진행합니다..."))
                     violations = self.regulation_checker.check_violations(self.current_text)
                     report = self.regulation_checker.generate_report(violations, self.current_text)
                     self.root.after(0, lambda: self._display_results(report, violations))
@@ -486,6 +526,85 @@ AI 맥락 분석:
         
         # 저장 버튼 활성화
         if len(ai_result.violations) > 0:
+            self.save_button.config(state=tk.NORMAL)
+    
+    def _display_local_ai_results(self, local_ai_result, basic_report, basic_violations):
+        """로컬 AI 분석 결과 표시"""
+        # 요약 탭 업데이트 (로컬 AI 특화)
+        summary_text = f"""
+🏠 로컬 AI 분석 결과
+
+로컬 AI 분석:
+• 발견된 위반사항: {len(local_ai_result.violations)}건
+• 사용된 모델: {local_ai_result.model_name}
+• 신뢰도: {local_ai_result.confidence_score:.1%}
+• 처리 시간: {local_ai_result.processing_time:.1f}초
+• 모델 크기: {local_ai_result.resource_usage.get('model_size', 'Unknown')}
+
+기본 검사 비교:
+• 기본 검사 위반사항: {basic_report['total_violations']}건
+• 위험도: {basic_report['risk_level']}
+
+AI 맥락 분석:
+{local_ai_result.contextual_analysis}
+
+법적 위험도 평가:
+{local_ai_result.legal_risk_assessment}
+
+개선 제안:
+"""
+        for i, suggestion in enumerate(local_ai_result.improvement_suggestions, 1):
+            summary_text += f"{i}. {suggestion}\n"
+        
+        summary_text += f"\n💡 완전 오프라인 분석으로 개인정보 보호가 보장됩니다."
+        
+        self.status_var.set(f"로컬 AI 분석 완료: {len(local_ai_result.violations)}건 위반사항 발견 (모델: {local_ai_result.model_name})")
+        self.summary_text.delete(1.0, tk.END)
+        self.summary_text.insert(1.0, summary_text)
+        
+        # 로컬 AI 위반사항을 기본 형식으로 변환하여 상세 탭에 표시
+        converted_violations = []
+        for ai_violation in local_ai_result.violations:
+            # AI 결과를 기본 Violation 객체로 변환
+            from ..core.regulation_checker import Violation, ViolationType, SeverityLevel
+            
+            # 위반 유형 매핑
+            type_mapping = {
+                "의약품적 표현": ViolationType.MEDICAL_CLAIM,
+                "효능 과장": ViolationType.EXAGGERATED_EFFECT,
+                "안전성 허위": ViolationType.SAFETY_MISREPRESENTATION,
+                "최상급 표현": ViolationType.SUPERLATIVE_EXPRESSION,
+                "비교광고 위반": ViolationType.COMPARATIVE_AD_VIOLATION
+            }
+            
+            # 심각도 매핑
+            severity_mapping = {
+                "높음": SeverityLevel.HIGH,
+                "중간": SeverityLevel.MEDIUM,
+                "낮음": SeverityLevel.LOW
+            }
+            
+            violation_type = type_mapping.get(ai_violation.get('type', ''), ViolationType.EXAGGERATED_EFFECT)
+            severity = severity_mapping.get(ai_violation.get('severity', '중간'), SeverityLevel.MEDIUM)
+            
+            violation = Violation(
+                text=ai_violation.get('text', ''),
+                violation_type=violation_type,
+                severity=severity,
+                legal_basis=ai_violation.get('legal_basis', ''),
+                suggestion=ai_violation.get('suggestion', ''),
+                position=0  # 로컬 AI는 위치 정보가 없을 수 있음
+            )
+            converted_violations.append(violation)
+        
+        # 상세 탭 업데이트
+        self._update_details_tab(converted_violations)
+        
+        # 원본 텍스트 탭 업데이트
+        self._update_text_tab()
+        
+        # 저장 버튼 활성화
+        if len(local_ai_result.violations) > 0:
             self.save_button.config(state=tk.NORMAL)
     
     def _on_violation_select(self, event):
