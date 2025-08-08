@@ -96,6 +96,9 @@ class LocalAIAnalyzer:
             else:
                 self.ollama_running = False
                 logging.warning("Ollama 서비스가 실행중이지만 API 응답이 올바르지 않습니다.")
+        except requests.exceptions.ConnectionError:
+            self.ollama_running = False
+            logging.info("Ollama 서비스가 실행되지 않고 있습니다. 'ollama serve' 명령어로 시작하세요.")
         except requests.exceptions.RequestException as e:
             self.ollama_running = False
             logging.warning(f"Ollama 서비스에 연결할 수 없습니다: {e}")

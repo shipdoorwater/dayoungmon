@@ -1,4 +1,4 @@
-#!/Users/a2348835/Desktop/dayoungmon/cosmetics_checker_env/bin/python3
+#!/Users/a2348835/Desktop/dayoungmon/cosmetics_checker_env/bin/python3.9
 
 ##############################################################################
 #

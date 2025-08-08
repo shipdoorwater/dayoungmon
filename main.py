@@ -5,7 +5,12 @@
 
 import sys
 import os
+import warnings
 from pathlib import Path
+
+# 경고 메시지 억제
+os.environ['TK_SILENCE_DEPRECATION'] = '1'
+warnings.filterwarnings('ignore', category=UserWarning, module='urllib3')
 
 # 프로젝트 루트를 Python 경로에 추가
 project_root = Path(__file__).parent
