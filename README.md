@@ -12,12 +12,14 @@
 
 ## ✨ 주요 기능
 
-### 현재 구현된 기능 (Phase 1 + 2 + 3 완료!)
+### 현재 구현된 기능 (Phase 1 + 2 + 3 + 패턴 관리 완료!)
 - 📄 **다양한 파일 형식 지원**: PDF, DOCX, PPTX, TXT, 이미지 파일
 - 🔍 **키워드 기반 위반사항 검출**: 정규표현식을 활용한 정확한 패턴 매칭
 - 🤖 **AI 정밀 분석**: Claude API를 활용한 맥락적 법규 분석
 - 🏠 **로컬 AI 분석**: Ollama를 사용한 완전 오프라인 AI 분석
 - 📈 **하이브리드 분석**: 세 가지 모드의 성능 비교 및 최적 모드 추천
+- ⚙️ **동적 패턴 관리**: DB 기반 패턴 시스템으로 실시간 규칙 수정/추가 가능
+- 🌐 **웹 인터페이스**: Streamlit 기반 직관적인 웹 UI
 - ⚖️ **법규 위반 유형 분류**:
   - 의약품적 표현 (치료, 완치, 의학적 효과 등)
   - 효능 과장 (100% 효과, 즉시, 완벽한 등)
@@ -29,8 +31,14 @@
 - 🎯 **3가지 분석 모드**: 키워드/Claude AI/로컬 AI 자유 선택
 - 💰 **비용 관리**: 일일/월간 사용량 제한 및 실시간 모니터링
 - 🔒 **완전한 개인정보 보호**: 로컬 AI로 민감한 문서도 안전하게 분석
-- 🖥️ **직관적인 GUI**: 사용하기 쉬운 그래픽 인터페이스
+- 🖥️ **직관적인 GUI**: 사용하기 쉬운 그래픽 인터페이스 
+- 🌐 **웹 기반 UI**: Streamlit을 통한 브라우저 접근
 - 💾 **결과 저장**: 검토 결과를 텍스트 파일로 내보내기
+- 📝 **패턴 관리**: 
+  - 웹 UI에서 실시간 패턴 추가/수정/삭제
+  - 패턴 백업/복원 기능
+  - 패턴 통계 및 사용량 분석
+  - 정규식 패턴 유효성 검사
 
 ## 🚀 빠른 시작
 
@@ -73,11 +81,21 @@ cp .env.example .env
 # ollama serve &
 # ollama pull solar-ko:10.7b  # 한국어 특화 모델 (7.5GB)
 # 또는 ollama pull llama3.2:3b  # 일반 모델 (2.0GB)
+
+# 7. 패턴 데이터베이스 초기화 (처음 실행 시)
+python migrate_patterns.py  # 기존 패턴을 DB로 마이그레이션
 ```
 
 ### 3. 실행 방법
 
-#### GUI 모드 (권장)
+#### 웹 UI 모드 (권장)
+```bash
+source cosmetics_checker_env/bin/activate
+streamlit run streamlit_app.py
+# 브라우저에서 http://localhost:8501 접속
+```
+
+#### 데스크톱 GUI 모드
 ```bash
 source cosmetics_checker_env/bin/activate
 python main.py
@@ -90,11 +108,24 @@ python test_basic.py             # 기본 기능 테스트
 python test_ai_features.py       # Claude AI 기능 테스트
 python test_local_ai.py          # 로컬 AI 기능 테스트
 python test_hybrid_analysis.py   # 하이브리드 분석 테스트
+python migrate_patterns.py      # 패턴 마이그레이션 테스트
 ```
 
 ## 📱 사용 방법
 
-### GUI 사용법
+### 웹 UI 사용법 (Streamlit)
+1. **메뉴 선택**: 사이드바에서 "📋 파일 분석" 또는 "⚙️ 패턴 관리" 선택
+2. **파일 분석 모드**:
+   - 파일 업로드 → 분석 모드 선택 → 분석 실행
+   - 실시간 진행상황 표시 및 결과 확인
+   - 탭별 결과 보기: 요약/상세결과/원본텍스트
+3. **패턴 관리 모드**:
+   - **패턴 목록**: 필터링, 검색, 편집, 삭제
+   - **패턴 추가**: 새로운 정규식 패턴 생성 및 검증
+   - **통계**: 패턴 현황 및 분포 차트
+   - **백업/복원**: JSON 파일로 패턴 관리
+
+### 데스크톱 GUI 사용법
 1. **파일 선택**: "파일 선택" 버튼을 클릭하여 검토할 파일을 선택
 2. **분석 모드 선택**: 
    - **빠른 검사 (키워드)**: 정규표현식 기반 즉시 분석
@@ -184,23 +215,34 @@ dayoungmon/
 │   │   ├── regulation_checker.py  # 기본 법규 위반사항 검출
 │   │   ├── ai_analyzer.py         # Claude AI 기반 법규 분석
 │   │   ├── local_ai_analyzer.py   # 로컬 AI (Ollama) 기반 분석
-│   │   └── hybrid_analyzer.py     # 하이브리드 분석 시스템
+│   │   ├── hybrid_analyzer.py     # 하이브리드 분석 시스템
+│   │   └── types.py              # 공통 타입 정의 (ViolationType, SeverityLevel)
 │   ├── ui/
-│   │   └── main_window.py         # GUI 인터페이스 (3가지 모드 지원)
+│   │   ├── main_window.py         # GUI 인터페이스 (3가지 모드 지원)
+│   │   └── pattern_management.py  # 패턴 관리 GUI
 │   └── data/
+│       ├── pattern_db.py          # SQLite 기반 패턴 데이터베이스
+│       ├── pattern_manager.py     # 패턴 관리 비즈니스 로직
+│       └── patterns.db            # 패턴 데이터베이스 파일 (자동 생성)
 ├── assets/
 │   └── sample_text.txt            # 테스트용 샘플 파일
 ├── tests/
 ├── docs/
-├── main.py                        # 메인 애플리케이션
+├── main.py                        # 메인 데스크톱 애플리케이션
+├── streamlit_app.py               # 웹 UI 메인 애플리케이션
+├── streamlit_pattern_management.py # 웹 UI 패턴 관리 모듈
+├── migrate_patterns.py            # 패턴 마이그레이션 스크립트
 ├── test_basic.py                  # 기본 기능 테스트
 ├── test_ai_features.py            # Claude AI 기능 테스트
 ├── test_local_ai.py               # 로컬 AI 기능 테스트
 ├── test_hybrid_analysis.py        # 하이브리드 분석 테스트
-├── requirements.txt               # 의존성 패키지 (Ollama 포함)
-├── .env.example                   # 환경 변수 템플릿 (로컬 AI 설정 포함)
+├── requirements.txt               # 의존성 패키지 (Streamlit, Ollama 포함)
+├── .env.example                   # 환경 변수 템플릿
+├── .env                          # 실제 환경 변수 파일 (gitignore)
+├── .gitignore                    # Git 무시 파일 목록
 ├── bash.md                        # 개발 과정 bash 명령어 기록
 ├── plan.md                        # 전체 개발 로드맵
+├── todo.md                        # 할일 목록
 └── README.md
 ```
 
@@ -228,6 +270,14 @@ dayoungmon/
 - [x] 하이브리드 분석 시스템 구축
 - [x] 성능 비교 및 최적 모드 추천 기능
 
+### Phase 4: 패턴 관리 시스템 ✅
+- [x] SQLite 기반 패턴 데이터베이스 구축
+- [x] 패턴 CRUD 기능 구현
+- [x] 웹 기반 패턴 관리 UI
+- [x] 패턴 백업/복원 시스템
+- [x] Streamlit 웹 인터페이스 통합
+- [x] 동적 패턴 로딩 및 실시간 업데이트
+
 ## 🤝 기여하기
 
 이 프로젝트는 학습 목적으로 개발되었습니다. 개선사항이나 버그 리포트는 언제든 환영합니다!
@@ -244,4 +294,22 @@ MIT License
 
 **개발자**: 화장품 품질관리 전문팀  
 **목적**: 생산성 향상 및 코드 학습  
-**버전**: 3.0.0 (전체 Phase 1 + 2 + 3 완료)
+**버전**: 4.0.0 (전체 Phase 1 + 2 + 3 + 패턴 관리 완료)
+
+## 🆕 최신 업데이트 (v4.0.0)
+
+### 패턴 관리 시스템
+- **동적 패턴 관리**: 웹 UI에서 실시간으로 검사 패턴 추가/수정/삭제 가능
+- **데이터베이스 기반**: SQLite를 활용한 안정적인 패턴 저장소
+- **패턴 백업/복원**: JSON 형식으로 패턴 백업 및 복원 지원
+- **통계 대시보드**: 패턴 사용량 및 분포 시각화
+
+### 웹 인터페이스 개선
+- **Streamlit 기반 웹 UI**: 브라우저에서 편리한 접근
+- **실시간 패턴 현황**: 사이드바에서 활성 패턴 수 확인
+- **통합 메뉴**: 파일 분석과 패턴 관리를 하나의 인터페이스에서
+
+### 시스템 안정성
+- **순환 import 해결**: 모듈 구조 최적화로 안정성 향상
+- **오류 처리 개선**: DB 연결 실패 시 자동 fallback
+- **패턴 검증**: 정규식 패턴 유효성 검사 기능
