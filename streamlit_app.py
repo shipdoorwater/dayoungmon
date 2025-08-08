@@ -18,8 +18,11 @@ sys.path.insert(0, str(project_root))
 # 기존 모듈 import
 from src.core.file_processor import FileProcessor, preprocess_text
 from src.core.regulation_checker import RegulationChecker
+from src.core.types import ViolationType, SeverityLevel
 from src.core.ai_analyzer import AIAnalyzer
 from src.core.local_ai_analyzer import LocalAIAnalyzer
+from src.data.pattern_manager import PatternManager
+from streamlit_pattern_management import show_pattern_management_page
 
 # 페이지 설정
 st.set_page_config(
@@ -36,6 +39,8 @@ if 'current_text' not in st.session_state:
     st.session_state.current_text = ""
 if 'current_file_name' not in st.session_state:
     st.session_state.current_file_name = ""
+if 'pattern_manager' not in st.session_state:
+    st.session_state.pattern_manager = None
 
 @st.cache_resource
 def init_processors():
@@ -44,8 +49,9 @@ def init_processors():
     regulation_checker = RegulationChecker()
     ai_analyzer = AIAnalyzer()
     local_ai_analyzer = LocalAIAnalyzer()
+    pattern_manager = PatternManager()
     
-    return file_processor, regulation_checker, ai_analyzer, local_ai_analyzer
+    return file_processor, regulation_checker, ai_analyzer, local_ai_analyzer, pattern_manager
 
 def main():
     """메인 앱"""
@@ -54,9 +60,25 @@ def main():
     st.markdown("---")
     
     # 프로세서 초기화
-    file_processor, regulation_checker, ai_analyzer, local_ai_analyzer = init_processors()
+    file_processor, regulation_checker, ai_analyzer, local_ai_analyzer, pattern_manager = init_processors()
+    st.session_state.pattern_manager = pattern_manager
     
-    # 사이드바 - 분석 모드 선택
+    # 네비게이션 메뉴
+    menu = st.sidebar.radio(
+        "🧭 메뉴",
+        ["📋 파일 분석", "⚙️ 패턴 관리"],
+        help="원하는 기능을 선택하세요"
+    )
+    
+    if menu == "📋 파일 분석":
+        show_file_analysis_page(file_processor, regulation_checker, ai_analyzer, local_ai_analyzer)
+    elif menu == "⚙️ 패턴 관리":
+        show_pattern_management_page(pattern_manager)
+
+def show_file_analysis_page(file_processor, regulation_checker, ai_analyzer, local_ai_analyzer):
+    """파일 분석 페이지"""
+    
+    # 사이드바 - 분석 설정
     with st.sidebar:
         st.header("🔧 분석 설정")
         
@@ -83,6 +105,13 @@ def main():
             st.success(f"✅ 로컬 AI: {local_usage['today_requests']}회")
         else:
             st.warning("⚠️ Ollama 설치 필요")
+            
+        # 패턴 통계
+        if st.session_state.pattern_manager:
+            pattern_stats = st.session_state.pattern_manager.get_pattern_statistics()
+            st.subheader("📊 패턴 현황")
+            st.text(f"• 활성 패턴: {pattern_stats['active_patterns']}개")
+            st.text(f"• 전체 패턴: {pattern_stats['total_patterns']}개")
             
         # 지원 파일 형식
         st.subheader("📁 지원 형식")
@@ -407,7 +436,8 @@ def display_details(result):
 
 def convert_ai_violations_to_basic(ai_violations):
     """AI 위반사항을 기본 형식으로 변환"""
-    from src.core.regulation_checker import Violation, ViolationType, SeverityLevel
+    from src.core.regulation_checker import Violation
+    from src.core.types import ViolationType, SeverityLevel
     
     converted_violations = []
     

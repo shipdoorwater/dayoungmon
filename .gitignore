@@ -1,0 +1,71 @@
+# API 키 및 환경 변수
+.env
+*.env
+.env.local
+.env.production
+
+# Python 캐시 및 바이트코드
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# 가상환경
+cosmetics_checker_env/
+venv/
+env/
+ENV/
+
+# IDE 및 에디터
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 로그 파일
+*.log
+logs/
+
+# 데이터베이스
+*.db
+*.sqlite3
+
+# AI 사용량 추적 파일 (민감한 정보 포함 가능)
+ai_usage_stats.json
+local_ai_usage.json
+
+# 임시 파일
+tmp/
+temp/
+*.tmp
+
+# 테스트 결과 파일
+test_results/
+*.coverage
+
+# 빌드 결과물
+build/
+dist/
+*.egg-info/
+
+# Jupyter Notebook 체크포인트
+.ipynb_checkpoints/
+
+# Streamlit 캐시
+.streamlit/
+
+# 업로드된 이미지 파일 (개인정보 포함 가능)
+uploads/
+user_uploads/
+
+# 분석 결과 보고서 (개인정보 포함 가능)
+reports/
+analysis_reports/

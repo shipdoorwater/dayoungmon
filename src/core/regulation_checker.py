@@ -2,21 +2,7 @@ import re
 import logging
 from typing import List, Dict, Tuple
 from dataclasses import dataclass
-from enum import Enum
-
-class ViolationType(Enum):
-    """위반 유형"""
-    MEDICAL_CLAIM = "의약품적 표현"
-    EXAGGERATED_EFFECT = "효능 과장"
-    SAFETY_MISREPRESENTATION = "안전성 허위"
-    SUPERLATIVE_EXPRESSION = "최상급 표현"
-    COMPARATIVE_AD_VIOLATION = "비교광고 위반"
-
-class SeverityLevel(Enum):
-    """위반 심각도"""
-    HIGH = "높음"
-    MEDIUM = "중간"
-    LOW = "낮음"
+from .types import ViolationType, SeverityLevel
 
 @dataclass
 class Violation:
@@ -31,8 +17,27 @@ class Violation:
 class RegulationChecker:
     """화장품법 및 광고표시법 위반사항 검출 클래스"""
     
-    def __init__(self):
-        self.violation_patterns = self._load_violation_patterns()
+    def __init__(self, use_database: bool = True):
+        self.use_database = use_database
+        self.pattern_manager = None
+        
+        if use_database:
+            try:
+                # 여기서 lazy import로 순환 import 방지
+                from ..data.pattern_manager import PatternManager
+                self.pattern_manager = PatternManager()
+                self.violation_patterns = self.pattern_manager.get_patterns_for_checking()
+                
+                # DB가 비어있으면 하드코딩된 패턴으로 초기화
+                if not self.violation_patterns:
+                    self.pattern_manager.migrate_hardcoded_patterns()
+                    self.violation_patterns = self.pattern_manager.get_patterns_for_checking()
+            except Exception as e:
+                logging.warning(f"패턴 DB 로드 실패, 하드코딩된 패턴 사용: {e}")
+                self.use_database = False
+                self.violation_patterns = self._load_violation_patterns()
+        else:
+            self.violation_patterns = self._load_violation_patterns()
     
     def _load_violation_patterns(self) -> Dict[ViolationType, List[Dict]]:
         """위반 패턴들을 로드"""
@@ -103,6 +108,51 @@ class RegulationChecker:
             ]
         }
         return patterns
+    
+    def reload_patterns(self):
+        """패턴 다시 로드"""
+        if self.use_database:
+            try:
+                self.violation_patterns = self.pattern_manager.get_patterns_for_checking()
+                logging.info("패턴이 데이터베이스에서 다시 로드되었습니다")
+            except Exception as e:
+                logging.error(f"패턴 재로드 실패: {e}")
+        else:
+            self.violation_patterns = self._load_violation_patterns()
+            logging.info("하드코딩된 패턴이 다시 로드되었습니다")
+    
+    def add_custom_pattern(self, pattern: str, violation_type: ViolationType, 
+                          severity: SeverityLevel, legal_basis: str, 
+                          suggestion: str, description: str = "") -> bool:
+        """사용자 정의 패턴 추가"""
+        if self.use_database:
+            try:
+                pattern_id = self.pattern_manager.add_custom_pattern(
+                    pattern, violation_type, severity, legal_basis, suggestion, description
+                )
+                self.reload_patterns()
+                logging.info(f"새 패턴 추가됨 (ID: {pattern_id})")
+                return True
+            except Exception as e:
+                logging.error(f"패턴 추가 실패: {e}")
+                return False
+        else:
+            logging.warning("데이터베이스 모드가 아니므로 패턴을 추가할 수 없습니다")
+            return False
+    
+    def get_pattern_statistics(self) -> Dict:
+        """패턴 통계 정보 반환"""
+        if self.use_database:
+            return self.pattern_manager.get_pattern_statistics()
+        else:
+            # 하드코딩된 패턴의 간단한 통계
+            total = sum(len(patterns) for patterns in self.violation_patterns.values())
+            return {
+                'total_patterns': total,
+                'active_patterns': total,
+                'type_distribution': {vt.name: len(patterns) for vt, patterns in self.violation_patterns.items()},
+                'source': 'hardcoded'
+            }
     
     def check_violations(self, text: str) -> List[Violation]:
         """텍스트에서 위반사항 검출"""

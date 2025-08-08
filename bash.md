@@ -200,3 +200,14 @@ source cosmetics_checker_env/bin/activate && python test_hybrid_analysis.py --co
 - **JSON 기반 로컬 사용량 추적**: 로컬 AI 사용 통계 관리
 - **성능 벤치마킹**: 실시간 처리 시간 및 정확도 비교
 - **상황별 모드 추천 시스템**: 우선순위 기반 최적 분석 모드 제안
+
+---
+
+## 📝 Streamlit 웹 애플리케이션 실행
+
+```bash
+# Streamlit 애플리케이션 실행
+source cosmetics_checker_env/bin/activate && streamlit run streamlit_app.py
+```
+**역할**: 웹 브라우저 기반 화장품 성분 검사 애플리케이션 실행  
+**이유**: GUI 대신 웹 인터페이스를 통해 더 직관적이고 접근하기 쉬운 사용자 경험 제공
